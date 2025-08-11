@@ -1,40 +1,40 @@
 # pref-by-location
 
-<!--toc:start-->
-
 - [pref-by-location](#pref-by-location)
   - [Requirements](#requirements)
   - [Preferences priority](#preferences-priority)
   - [Installation](#installation)
     - [Add setup function in `yazi/init.lua`.](#add-setup-function-in-yaziinitlua)
     - [Add `keymap.toml`](#add-keymaptoml)
+  - [Behavior notes](#behavior-notes)
+    - [Symbolic links and canonical paths](#symbolic-links-and-canonical-paths)
+    - [Tilde (`~`) shorthand for home directory](#tilde--shorthand-for-home-directory)
+    - [Path normalization and matching](#path-normalization-and-matching)
   - [For developers](#for-developers)
-  <!--toc:end-->
+    - [Notes for adding preferences:](#notes-for-adding-preferences)
 
 This is a Yazi plugin that save these preferences by location:
 
-- [linemode](https://yazi-rs.github.io/docs/configuration/yazi#mgr.linemode)
-- [sort](https://yazi-rs.github.io/docs/configuration/yazi#mgr.sort_by)
-- [show_hidden](https://yazi-rs.github.io/docs/configuration/yazi#mgr.show_hidden)
+* [linemode](https://yazi-rs.github.io/docs/configuration/yazi#mgr.linemode)
+* [sort](https://yazi-rs.github.io/docs/configuration/yazi#mgr.sort_by)
+* [show\_hidden](https://yazi-rs.github.io/docs/configuration/yazi#mgr.show_hidden)
 
-> [!IMPORTANT]
-> Minimum version: yazi v25.5.31.
+> [!IMPORTANT] Minimum version: yazi v25.5.31.
 >
-> This plugin will conflict with folder-rules. You should remove it.
-> https://yazi-rs.github.io/docs/tips#folder-rules
+> This plugin will conflict with folder-rules. You should remove it. [https://yazi-rs.github.io/docs/tips#folder-rules](https://yazi-rs.github.io/docs/tips#folder-rules)
 
 ## Requirements
 
-- [yazi >= 25.5.31](https://github.com/sxyazi/yazi)
-- Tested on Linux.
+* [yazi >= 25.5.31](https://github.com/sxyazi/yazi)
+* Tested on Linux; compatible with Windows.
 
 ## Preferences priority
 
 This plugin will pick the first matching preference. The order of preferences is:
 
-- Manually saved preferences (using `plugin pref-by-location -- save`).
-- Predefined preferences (in `setup` function).
-- Default preferences (in `yazi.toml`)
+* Manually saved preferences (using `plugin pref-by-location -- save`).
+* Predefined preferences (in `setup` function).
+* Default preferences (in `yazi.toml`)
 
 ## Installation
 
@@ -58,10 +58,6 @@ pref_by_location:setup({
   -- no_notify = false -- true|false (Optional)
 
   -- Disable the fallback/default preference (values in `yazi.toml`).
-  -- This mean if none of the saved or predifined perferences is matched,
-  -- then it won't reset preference to default values in yazi.toml.
-  -- For example, go from folder A to folder B (folder B matchs saved preference to show hidden files) -> show hidden.
-  -- Then move back to folder A -> keep showing hidden files, because the folder A doesn't match any saved or predefined preference.
   -- disable_fallback_preference = false -- true|false|nil (Optional)
 
   -- You can backup/restore this file. But don't use same file in the different OS.
@@ -73,34 +69,13 @@ pref_by_location:setup({
   prefs = { -- (Optional)
     -- location: String | Lua pattern (Required)
     --   - Support literals full path, lua pattern (string.match pattern): https://www.lua.org/pil/20.2.html
-    --     And don't put ($) sign at the end of the location. %$ is ok.
-    --   - If you want to use special characters (such as . * ? + [ ] ( ) ^ $ %) in "location"
-    --     you need to escape them with a percent sign (%) or use a helper funtion `pref_by_location.is_literal_string`
-    --     Example: "/home/test/Hello (Lua) [world]" => { location = "/home/test/Hello %(Lua%) %[world%]", ....}
-    --     or { location = pref_by_location.is_literal_string("/home/test/Hello (Lua) [world]"), .....}
+    --   - Use pref_by_location.is_literal_string(...) to escape special characters when needed
 
-    -- sort: {} (Optional) https://yazi-rs.github.io/docs/configuration/yazi#mgr.sort_by
-    --   - extension: "none"|"mtime"|"btime"|"extension"|"alphabetical"|"natural"|"size"|"random", (Optional)
-    --   - reverse: true|false (Optional)
-    --   - dir_first: true|false (Optional)
-    --   - translit: true|false (Optional)
-    --   - sensitive: true|false (Optional)
-
-    -- linemode: "none" |"size" |"btime" |"mtime" |"permissions" |"owner" (Optional) https://yazi-rs.github.io/docs/configuration/yazi#mgr.linemode
-    --   - Custom linemode also work. See the example below
-
-    -- show_hidden: true|false (Optional) https://yazi-rs.github.io/docs/configuration/yazi#mgr.show_hidden
-
-    -- Some examples:
-    -- Match any folder which has path start with "/mnt/remote/". Example: /mnt/remote/child/child2
+		{ location = "~\\Downloads", sort = { "mtime", reverse = true, dir_first = false } },
     { location = "^/mnt/remote/.*", sort = { "extension", reverse = false, dir_first = true, sensitive = false} },
-    -- Match any folder with name "Downloads"
     { location = ".*/Downloads", sort = { "btime", reverse = true, dir_first = true }, linemode = "btime" },
-    -- Match exact folder with absolute path "/home/test/Videos".
-    -- Use helper function `pref_by_location.is_literal_string` to prevent the case where the path contains special characters
     { location = pref_by_location.is_literal_string("/home/test/Videos"), sort = { "btime", reverse = true, dir_first = true }, linemode = "btime" },
 
-    -- show_hidden for any folder with name "secret"
     {
 	    location = ".*/secret",
 	    sort = { "natural", reverse = false, dir_first = true },
@@ -108,72 +83,49 @@ pref_by_location:setup({
 	    show_hidden = true,
     },
 
-    -- Custom linemode also work
     {
 	    location = ".*/abc",
 	    linemode = "size_and_mtime",
     },
-    -- DO NOT ADD location = ".*". Which currently use your yazi.toml config as fallback.
-    -- That mean if none of the saved perferences is matched, then it will use your config from yazi.toml.
-    -- So change linemode, show_hidden, sort_xyz in yazi.toml instead.
   },
 })
 ```
 
 ### Add `keymap.toml`
 
-> [!IMPORTANT]
-> Always run `"plugin pref-by-location -- save"` after changed hidden, linemode, sort
+> [!IMPORTANT] Always run `"plugin pref-by-location -- save"` after changed hidden, linemode, sort
 
-Since Yazi selects the first matching key to run, `prepend_keymap` always has a higher priority than default.
-Or you can use `keymap` to replace all other keys
+Since Yazi selects the first matching key to run, `prepend_keymap` always has a higher priority than default. Or you can use `keymap` to replace all other keys
 
 More information about these commands and their arguments:
 
-- [linemode](https://yazi-rs.github.io/docs/configuration/keymap#mgr.linemode)
-- [sort](https://yazi-rs.github.io/docs/configuration/keymap#mgr.sort)
-- [hidden](https://yazi-rs.github.io/docs/configuration/keymap#mgr.hidden)
+* [linemode](https://yazi-rs.github.io/docs/configuration/keymap#mgr.linemode)
+* [sort](https://yazi-rs.github.io/docs/configuration/keymap#mgr.sort)
+* [hidden](https://yazi-rs.github.io/docs/configuration/keymap#mgr.hidden)
 
-> [!IMPORTANT]
-> NOTE 1 disable and toggle functions behavior:
+> [!IMPORTANT] NOTE 1 disable and toggle functions behavior:
 >
-> - Toggle and disable sync across instances.
-> - Enabled/disabled state will be persistently stored.
-> - Any changes during disabled state won't be saved to save file.
-> - Switching from disabled to enabled state will reload all preferences
->   from the save file for all instances, preventing conflicts
->   when more than one instance changed the preferences of the same folder.
->   This also affect to current working directory (cwd).
+> * Toggle and disable sync across instances.
+> * Enabled/disabled state will be persistently stored.
+> * Any changes during disabled state won't be saved to save file.
+> * Switching from disabled to enabled state will reload all preferences from the save file for all instances, preventing conflicts when more than one instance changed the preferences of the same folder. This also affect to current working directory (cwd).
 
-> [!IMPORTANT]
-> NOTE 2 Sort = size and Linemode = size behavior:
-> If Sort = size and Linemode = size.
-> You will notice a delay if cwd folder is large.
-> It has to wait for all child folders to fully load (calculate size) before applying
-> the preferences.
+> [!IMPORTANT] NOTE 2 Sort = size and Linemode = size behavior: If Sort = size and Linemode = size. You will notice a delay if cwd folder is large. It has to wait for all child folders to fully load (calculate size) before applying the preferences.
 
 ```toml
 [mgr]
   prepend_keymap = [
-    # Toggle Hidden
     { on = ".", run = [ "hidden toggle", "plugin pref-by-location -- save" ], desc = "Toggle the visibility of hidden files" },
 
-    # Linemode
     { on = [ "m", "s" ], run = [ "linemode size", "plugin pref-by-location -- save" ],        desc = "Linemode: size" },
     { on = [ "m", "p" ], run = [ "linemode permissions", "plugin pref-by-location -- save" ], desc = "Linemode: permissions" },
     { on = [ "m", "b" ], run = [ "linemode btime", "plugin pref-by-location -- save" ],       desc = "Linemode: btime" },
     { on = [ "m", "m" ], run = [ "linemode mtime", "plugin pref-by-location -- save" ],       desc = "Linemode: mtime" },
     { on = [ "m", "o" ], run = [ "linemode owner", "plugin pref-by-location -- save" ],       desc = "Linemode: owner" },
     { on = [ "m", "n" ], run = [ "linemode none", "plugin pref-by-location -- save" ],        desc = "Linemode: none" },
-    # Custom size_and_mtime linemode
-    # { on = [ "u", "S" ], run = [ "linemode size_and_mtime", "plugin pref-by-location -- save" ], desc = "Show Size and Modified time" },
 
-    # Sorting
-    # Any changes during disabled state won't be saved to save file.
     { on = [ ",", "t" ], run = "plugin pref-by-location -- toggle",                                                desc = "Toggle auto-save preferences" },
     { on = [ ",", "d" ], run = "plugin pref-by-location -- disable",                                               desc = "Disable auto-save preferences" },
-    # This will reset any preference changes for the current working directory (CWD),
-    # then fall back to the predefined preferences in init.lua or yazi.toml.
     { on = [ ",", "R" ], run = [ "plugin pref-by-location -- reset" ],                                             desc = "Reset preference of cwd" },
     { on = [ ",", "m" ], run = [ "sort mtime --reverse=no", "linemode mtime", "plugin pref-by-location -- save" ], desc = "Sort by modified time" },
     { on = [ ",", "M" ], run = [ "sort mtime --reverse", "linemode mtime", "plugin pref-by-location -- save" ],    desc = "Sort by modified time (reverse)" },
@@ -185,26 +137,56 @@ More information about these commands and their arguments:
     { on = [ ",", "A" ], run = [ "sort alphabetical --reverse", "plugin pref-by-location -- save" ],               desc = "Sort alphabetically (reverse)" },
     { on = [ ",", "n" ], run = [ "sort natural --reverse=no", "plugin pref-by-location -- save" ],                 desc = "Sort naturally" },
     { on = [ ",", "N" ], run = [ "sort natural --reverse", "plugin pref-by-location -- save" ],                    desc = "Sort naturally (reverse)" },
-    # --sensitive=no or --sensitive
-    # { on = [ ",", "N" ], run = [ "sort natural --reverse=no --sensitive", "plugin pref-by-location -- save" ],                    desc = "Sort naturally" },
     { on = [ ",", "s" ], run = [ "sort size --reverse=no", "linemode size", "plugin pref-by-location -- save" ],   desc = "Sort by size" },
     { on = [ ",", "S" ], run = [ "sort size --reverse", "linemode size", "plugin pref-by-location -- save" ],      desc = "Sort by size (reverse)" },
     { on = [ ",", "r" ], run = [ "sort random --reverse=no", "plugin pref-by-location -- save" ],                  desc = "Sort randomly" },
 ]
 ```
 
+## Behavior notes
+
+### Symbolic links and canonical paths
+
+The plugin resolves symbolic links and treats symlink locations and their target (canonical) paths as equivalent when matching and saving preferences. Matching is performed against all equivalent forms of the current working directory (for example, the symlink path and the link's target path). Preference save/reset logic also takes these equivalents into account to avoid duplicate entries for the same logical folder.
+
+When the parent folder is loaded, the plugin first attempts to read the symlink target from the file entry metadata. If that metadata is not available, the plugin falls back to file-system metadata queries. This makes matching robust across common filesystem layouts and link types (junctions, symlinks, reparse points).
+
+### Tilde (`~`) shorthand for home directory
+
+The plugin accepts `~` as shorthand for the current user's home directory in `location` patterns. Both `~/folder` (Unix-style) and `~\folder` (Windows-style) patterns are recognized and resolved to the actual home path when matching preferences.
+
+Examples:
+
+* `~\Downloads` will match `C:\Users\<you>\Downloads` on Windows (when the home folder resolves to `C:\Users\<you>`).
+* `~/Downloads` will match `/home/<you>/Downloads` on Unix-like systems.
+
+### Path normalization and matching
+
+Paths and preference locations are normalized before comparison:
+
+* Path separators are normalized (both `/` and `\` are handled).
+* Extra/trailing separators are removed.
+* On Windows, comparisons are case-insensitive (paths are normalized to a canonical case for matching).
+* Preferences use suffix matching against normalized paths (so patterns like `.*/Downloads` will match both `~/Downloads` and the canonical absolute path).
+
+These normalization rules reduce false negatives caused by different path notations or case differences.
+
 ## For developers
 
 Trigger this plugin programmatically:
 
 ```lua
--- In your plugin:
 local pref_by_location = require("pref-by-location")
--- Available actions: save, reset, toggle, disable
-  local action = "save"
-	local args = ya.quote(action)
-	ya.emit("plugin", {
-		pref_by_location._id,
-		args,
-	})
+local action = "save" -- available actions: save, reset, toggle, disable
+local args = ya.quote(action)
+ya.emit("plugin", {
+  pref_by_location._id,
+  args,
+})
 ```
+
+### Notes for adding preferences:
+
+* Use `pref_by_location.is_literal_string(path)` to escape special Lua pattern characters when you want an exact literal match.
+* Preferences defined with `~` or that target a path referenced by symlink will match equivalent folders and will not be duplicated when saved/reset.
+* Always run `"plugin pref-by-location -- save"` after changing linemode, sort or show\_hidden via keymap so the plugin persists the current preference for the current working directory.
