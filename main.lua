@@ -28,6 +28,7 @@ local STATE_KEY = {
 	no_notify = "no_notify",
 	save_path = "save_path",
 	last_hovered_folder = "last_hovered_folder",
+	hoverved_histories = "hoverved_histories",
 	prefs = "prefs",
 	default_pref = "default_pref",
 	project_plugin_load_event = "project_plugin_load_event",
@@ -83,6 +84,28 @@ local function hex_decode_table(t)
 	end
 	return out
 end
+
+local add_hover_histories = ya.sync(function(state, namespace, key, value, limit_cached_items)
+	if not state[namespace] then
+		state[namespace] = {}
+	end
+	local storage = state[namespace]
+	if limit_cached_items and #storage > limit_cached_items then
+		table.remove(storage, 1)
+	end
+	storage[key] = value
+end)
+
+local get_hover_histories = ya.sync(function(state, namespace, key)
+	local storage = state[namespace]
+	if not storage then
+		return nil
+	end
+
+	if storage then
+		return storage[key]
+	end
+end)
 
 local enqueue_task = ya.sync(function(state, task_name, task_data)
 	if not state[task_name] or type(state[task_name]) ~= "table" then
@@ -160,7 +183,9 @@ local read_prefs_from_saved_file = function(pref_path)
 end
 
 local current_dir = ya.sync(function()
-	return tostring(cx.active.current.cwd)
+	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
+
+	return tostring(is_virtual and cx.active.current.cwd or cx.active.current.cwd.path)
 end)
 
 -- NOTE: can't use rt.mgr here because the value is not always the latest, unless set entry function as sync
@@ -302,7 +327,9 @@ end)
 local change_pref = ya.sync(function()
 	local prefs = get_state(STATE_KEY.prefs)
 
-	local cwd = tostring(cx.active.current.cwd)
+	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
+
+	local cwd = tostring(is_virtual and cx.active.current.cwd or cx.active.current.cwd.path)
 	-- change pref based on location
 	for _, pref in ipairs(prefs) do
 		if string.match(cwd, pref.location .. "$") then
@@ -321,27 +348,31 @@ local change_pref = ya.sync(function()
 				)
 
 				if last_hovered_folder then
+					local hover_histories =
+						get_hover_histories(STATE_KEY.hoverved_histories, tostring(last_hovered_folder.last_parent))
 					if
 						-- NOTE: Case user move left to right
-						(last_hovered_folder.preview_cwd == cwd)
-						and last_hovered_folder.preview_hovered_folder
-							~= (cx.active.current.hovered and tostring(cx.active.current.hovered.url))
+						(last_hovered_folder.last_preview_folder == cwd)
+						and last_hovered_folder.last_preview_pane_hovered_folder
+							~= (cx.active.current.hovered and tostring(
+								is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path
+							))
 					then
 						ya.emit("reveal", {
-							last_hovered_folder.preview_hovered_folder,
+							last_hovered_folder.last_preview_pane_hovered_folder,
 							no_dummy = true,
 							raw = true,
 							tab = (type(cx.active.id) == "number" or type(cx.active.id) == "string") and cx.active.id
 								or cx.active.id.value,
 						})
 					elseif
-						--NOTE: Case user move from right to left
-						(last_hovered_folder.parent_cwd == cwd or not last_hovered_folder.parent_cwd)
-						and last_hovered_folder.hovered_folder
+						(last_hovered_folder.last_parent == cwd or not last_hovered_folder.last_parent)
+						and hover_histories
+						and hover_histories
 							~= (cx.active.current.hovered and tostring(cx.active.current.hovered.url))
 					then
 						ya.emit("reveal", {
-							last_hovered_folder.hovered_folder,
+							hover_histories,
 							no_dummy = true,
 							raw = true,
 							tab = (type(cx.active.id) == "number" or type(cx.active.id) == "string") and cx.active.id
@@ -352,6 +383,7 @@ local change_pref = ya.sync(function()
 				-- Save parent cwd + parent hovered folder + preview hovered folder
 
 				local parent_folder = cx.active.parent
+					and tostring(is_virtual and cx.active.parent.cwd or cx.active.parent.cwd.path)
 				set_state(
 					STATE_KEY.last_hovered_folder
 						.. tostring(
@@ -359,12 +391,18 @@ local change_pref = ya.sync(function()
 								or cx.active.id.value
 						),
 					{
-						parent_cwd = parent_folder and tostring(parent_folder.cwd),
-						hovered_folder = cwd,
-						preview_cwd = cx.active.preview.folder and tostring(cx.active.preview.folder.cwd),
-						preview_hovered_folder = cx.active.preview.folder
+						last_parent = parent_folder,
+						last_cwd = cwd,
+						--TODO: FIX ME
+						last_preview_folder = cx.active.preview.folder and tostring(
+							is_virtual and cx.active.preview.folder.cwd or cx.active.preview.folder.cwd.path
+						),
+						last_preview_pane_hovered_folder = cx.active.preview.folder
 							and cx.active.preview.folder.hovered
-							and tostring(cx.active.preview.folder.hovered.url),
+							and tostring(
+								is_virtual and cx.active.preview.folder.hovered.url
+									or cx.active.preview.folder.hovered.url.path
+							),
 					}
 				)
 			end
@@ -474,8 +512,17 @@ function M:setup(opts)
 			return
 		end
 		-- NOTE: Trigger if folder is already loaded
-		if cx.active.current.stage then
+		if cx.active.current.stage() then
 			change_pref()
+		end
+	end)
+
+	ps.sub("hover", function(_)
+		if cx.active.current.hovered then
+			local is_virtual = Url(cx.active.current.hovered.url).scheme
+				and Url(cx.active.current.hovered.url).scheme.is_virtual
+			local hovered_url = is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path
+			add_hover_histories(STATE_KEY.hoverved_histories, tostring(hovered_url.parent), tostring(hovered_url), 10)
 		end
 	end)
 
@@ -489,7 +536,7 @@ function M:setup(opts)
 			return
 		end
 		-- NOTE: Trigger if folder is already loaded
-		if body.stage and current_dir() == tostring(body.url) then
+		if body.stage() and current_dir() == tostring(body.url) then
 			change_pref()
 		end
 	end)
