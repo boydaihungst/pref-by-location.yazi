@@ -46,7 +46,7 @@ ya pkg add boydaihungst/pref-by-location
 
 ### Add setup function in `yazi/init.lua`.
 
-Prefs is optional but the setup function is required.
+All the options inside setup function are optional, but the setup function itself is required.
 
 ```lua
 local pref_by_location = require("pref-by-location")
@@ -68,6 +68,10 @@ pref_by_location:setup({
   -- save_path =  -- full path to save file (Optional)
   --       - Linux/MacOS: os.getenv("HOME") .. "/.config/yazi/pref-by-location"
   --       - Windows: os.getenv("APPDATA") .. "\\yazi\\config\\pref-by-location"
+
+  -- https://github.com/MasouShizuka/projects.yazi compatibility
+  -- If you use projects.yazi plugin and changed it's default yazi_load_event config, you have to set this value to equal projects.yazi > setup function > save > yazi_load_event. Default is "@projects-load"
+  -- project_plugin_load_event = "@projects-load" -- string (Optional)
 
   -- This is predefined preferences.
   prefs = { -- (Optional)

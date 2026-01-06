@@ -30,6 +30,7 @@ local STATE_KEY = {
 	last_hovered_folder = "last_hovered_folder",
 	prefs = "prefs",
 	default_pref = "default_pref",
+	project_plugin_load_event = "project_plugin_load_event",
 	disable_fallback_preference = "disable_fallback_preference",
 	tasks_write_prefs_running = "tasks_write_prefs_running",
 	tasks_write_prefs = "tasks_write_prefs",
@@ -417,9 +418,13 @@ function M:is_literal_string(str)
 end
 
 -- sort value is https://yazi-rs.github.io/docs/configuration/keymap#mgr.sort
---- @param opts {prefs: table<{ location: string, sort: {[1]?: SORT_BY, reverse?: boolean, dir_first?: boolean, translit?: boolean, sensitive?: boolean }, linemode?: LINEMODE, show_hidden?: boolean, is_predefined?: boolean }>, save_path?: string, disabled?: boolean, no_notify?: boolean }
+--- @param opts {prefs: table<{ location: string, sort: {[1]?: SORT_BY, reverse?: boolean, dir_first?: boolean, translit?: boolean, sensitive?: boolean }, linemode?: LINEMODE, show_hidden?: boolean, is_predefined?: boolean }>, save_path?: string, disabled?: boolean, no_notify?: boolean, project_plugin_load_event?: string }
 function M:setup(opts)
 	local prefs = type(opts.prefs) == "table" and opts.prefs or {}
+	set_state(
+		STATE_KEY.project_plugin_load_event,
+		type(opts.project_plugin_load_event) == "string" and opts.project_plugin_load_event or "@projects-load"
+	)
 	local save_path = (ya.target_family() == "windows" and os.getenv("APPDATA") .. "\\yazi\\config\\pref-by-location")
 		or (os.getenv("HOME") .. "/.config/yazi/pref-by-location")
 	if type(opts) == "table" then
@@ -475,7 +480,7 @@ function M:setup(opts)
 	end)
 
 	-- NOTE: project.yazi compatibility
-	ps.sub_remote("project-loaded", function(_)
+	ps.sub_remote(get_state(STATE_KEY.project_plugin_load_event), function(_)
 		change_pref()
 	end)
 
