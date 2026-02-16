@@ -300,9 +300,10 @@ local update_ui_pref = ya.sync(function(_, pref, return_sort_pref)
 			tab = (type(cx.active.id) == "number" or type(cx.active.id) == "string") and cx.active.id
 				or cx.active.id.value,
 		})
-		if not return_sort_pref then
-			ya.emit("sort", sort_pref)
+		if return_sort_pref then
+			return sort_pref
 		end
+		ya.emit("sort", sort_pref)
 	end
 
 	-- linemode
@@ -324,25 +325,29 @@ local update_ui_pref = ya.sync(function(_, pref, return_sort_pref)
 				or cx.active.id.value,
 		})
 	end
-	if return_sort_pref then
-		return sort_pref
-	end
 end)
 
--- This function trigger everytime user change cwd
-local change_pref = ya.sync(function(_, return_sort_pref)
+local get_ind_sort_pref = ya.sync(function()
 	local prefs = get_state(STATE_KEY.prefs)
-
 	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
-
 	local cwd = tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
-	local sort_pref
 	-- change pref based on location
 	for _, pref in ipairs(prefs) do
 		if string.match(cwd, pref.location .. "$") then
-			sort_pref = update_ui_pref(pref, return_sort_pref)
+			return update_ui_pref(pref, true)
+		end
+	end
+end)
+-- This function trigger everytime user change cwd
+local change_pref = ya.sync(function(_)
+	local prefs = get_state(STATE_KEY.prefs)
+	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
+	local cwd = tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
+	-- change pref based on location
+	for _, pref in ipairs(prefs) do
+		if string.match(cwd, pref.location .. "$") then
+			update_ui_pref(pref)
 
-			--show_hidden
 			local show_hidden_pref = pref.show_hidden
 			if show_hidden_pref ~= nil then
 				-- Restore hovered hidden folder
@@ -419,7 +424,7 @@ local change_pref = ya.sync(function(_, return_sort_pref)
 					}
 				)
 			end
-			return sort_pref
+			return
 		end
 	end
 end)
@@ -520,11 +525,20 @@ function M:setup(opts)
 	set_state(STATE_KEY.prefs, prefs)
 	set_state(STATE_KEY.loaded, true)
 
+	ps.sub("hover", function(_)
+		if cx.active.current.hovered then
+			local is_virtual = Url(cx.active.current.hovered.url).scheme
+				and Url(cx.active.current.hovered.url).scheme.is_virtual
+			local hovered_url = (is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
+				or cx.active.current.hovered.url
+			add_hover_histories(STATE_KEY.hoverved_histories, tostring(hovered_url.parent), tostring(hovered_url), 10)
+		end
+	end)
 	-- dds subscribe on changed directory
 	if get_state(STATE_KEY.supported_ind_sort) then
 		ps.sub("ind-sort", function(opt)
 			if not get_state(STATE_KEY.disabled) then
-				local new_sort_pref = change_pref(true)
+				local new_sort_pref = get_ind_sort_pref()
 				if new_sort_pref then
 					opt.by, opt.reverse, opt.dir_first, opt.translit, opt.sensitive =
 						new_sort_pref[1],
@@ -537,34 +551,25 @@ function M:setup(opts)
 
 			return opt
 		end)
-	else
-		ps.sub("cd", function(_)
-			if get_state(STATE_KEY.disabled) then
-				return
-			end
-			-- NOTE: Trigger if folder is already loaded
-			if cx.active.current.stage() then
-				change_pref()
-			end
-		end)
-		ps.sub("load", function(body)
-			if get_state(STATE_KEY.disabled) then
-				return
-			end
-			-- NOTE: Trigger if folder is already loaded
-			if body.stage() and current_dir() == tostring(body.url) then
-				change_pref()
-			end
-		end)
 	end
 
-	ps.sub("hover", function(_)
-		if cx.active.current.hovered then
-			local is_virtual = Url(cx.active.current.hovered.url).scheme
-				and Url(cx.active.current.hovered.url).scheme.is_virtual
-			local hovered_url = (is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
-				or cx.active.current.hovered.url
-			add_hover_histories(STATE_KEY.hoverved_histories, tostring(hovered_url.parent), tostring(hovered_url), 10)
+	ps.sub("cd", function(_)
+		if get_state(STATE_KEY.disabled) then
+			return
+		end
+		-- NOTE: Trigger if folder is already loaded
+		if cx.active.current.stage() then
+			change_pref()
+		end
+	end)
+
+	ps.sub("load", function(body)
+		if get_state(STATE_KEY.disabled) then
+			return
+		end
+		-- NOTE: Trigger if folder is already loaded
+		if body.stage() and current_dir() == tostring(body.url) then
+			change_pref()
 		end
 	end)
 
