@@ -186,7 +186,7 @@ end
 local current_dir = ya.sync(function()
 	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
 
-	return tostring(is_virtual and cx.active.current.cwd or cx.active.current.cwd.path or cx.active.current.cwd)
+	return tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
 end)
 
 -- NOTE: can't use rt.mgr here because the value is not always the latest, unless set entry function as sync
@@ -335,7 +335,7 @@ local change_pref = ya.sync(function(_, return_sort_pref)
 
 	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
 
-	local cwd = tostring(is_virtual and cx.active.current.cwd or cx.active.current.cwd.path or cx.active.current.cwd)
+	local cwd = tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
 	local sort_pref
 	-- change pref based on location
 	for _, pref in ipairs(prefs) do
@@ -362,7 +362,8 @@ local change_pref = ya.sync(function(_, return_sort_pref)
 						(last_hovered_folder.last_preview_folder == cwd)
 						and last_hovered_folder.last_preview_pane_hovered_folder
 							~= (cx.active.current.hovered and tostring(
-								is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path
+								(is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
+									or cx.active.current.hovered.url
 							))
 					then
 						ya.emit("reveal", {
@@ -390,7 +391,9 @@ local change_pref = ya.sync(function(_, return_sort_pref)
 				-- Save parent cwd + parent hovered folder + preview hovered folder
 
 				local parent_folder = cx.active.parent
-					and tostring(is_virtual and cx.active.parent.cwd or cx.active.parent.cwd.path)
+					and tostring(
+						(is_virtual and cx.active.parent.cwd or cx.active.parent.cwd.path) or cx.active.parent.cwd
+					)
 				set_state(
 					STATE_KEY.last_hovered_folder
 						.. tostring(
@@ -402,13 +405,16 @@ local change_pref = ya.sync(function(_, return_sort_pref)
 						last_cwd = cwd,
 						--TODO: FIX ME
 						last_preview_folder = cx.active.preview.folder and tostring(
-							is_virtual and cx.active.preview.folder.cwd or cx.active.preview.folder.cwd.path
+							(is_virtual and cx.active.preview.folder.cwd or cx.active.preview.folder.cwd.path)
+								or cx.active.preview.folder.cwd
 						),
 						last_preview_pane_hovered_folder = cx.active.preview.folder
 							and cx.active.preview.folder.hovered
 							and tostring(
-								is_virtual and cx.active.preview.folder.hovered.url
+								(
+									is_virtual and cx.active.preview.folder.hovered.url
 									or cx.active.preview.folder.hovered.url.path
+								) or cx.active.preview.folder.hovered.url
 							),
 					}
 				)
@@ -556,8 +562,7 @@ function M:setup(opts)
 		if cx.active.current.hovered then
 			local is_virtual = Url(cx.active.current.hovered.url).scheme
 				and Url(cx.active.current.hovered.url).scheme.is_virtual
-			local hovered_url = is_virtual and cx.active.current.hovered.url
-				or cx.active.current.hovered.url.path
+			local hovered_url = (is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
 				or cx.active.current.hovered.url
 			add_hover_histories(STATE_KEY.hoverved_histories, tostring(hovered_url.parent), tostring(hovered_url), 10)
 		end
