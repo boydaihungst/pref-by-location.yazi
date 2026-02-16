@@ -371,13 +371,16 @@ local change_pref = ya.sync(function(_)
 									or cx.active.current.hovered.url
 							))
 					then
-						ya.emit("reveal", {
-							last_hovered_folder.last_preview_pane_hovered_folder,
-							no_dummy = true,
-							raw = true,
-							tab = (type(cx.active.id) == "number" or type(cx.active.id) == "string") and cx.active.id
-								or cx.active.id.value,
-						})
+						if last_hovered_folder.last_preview_pane_hovered_folder then
+							ya.emit("reveal", {
+								last_hovered_folder.last_preview_pane_hovered_folder,
+								no_dummy = true,
+								raw = true,
+								tab = (type(cx.active.id) == "number" or type(cx.active.id) == "string")
+										and cx.active.id
+									or cx.active.id.value,
+							})
+						end
 					elseif
 						(last_hovered_folder.last_parent == cwd or not last_hovered_folder.last_parent)
 						and hover_histories
@@ -525,15 +528,6 @@ function M:setup(opts)
 	set_state(STATE_KEY.prefs, prefs)
 	set_state(STATE_KEY.loaded, true)
 
-	ps.sub("hover", function(_)
-		if cx.active.current.hovered then
-			local is_virtual = Url(cx.active.current.hovered.url).scheme
-				and Url(cx.active.current.hovered.url).scheme.is_virtual
-			local hovered_url = (is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
-				or cx.active.current.hovered.url
-			add_hover_histories(STATE_KEY.hoverved_histories, tostring(hovered_url.parent), tostring(hovered_url), 10)
-		end
-	end)
 	-- dds subscribe on changed directory
 	if get_state(STATE_KEY.supported_ind_sort) then
 		ps.sub("ind-sort", function(opt)
@@ -570,6 +564,16 @@ function M:setup(opts)
 		-- NOTE: Trigger if folder is already loaded
 		if body.stage() and current_dir() == tostring(body.url) then
 			change_pref()
+		end
+	end)
+
+	ps.sub("hover", function(_)
+		if cx.active.current.hovered then
+			local is_virtual = Url(cx.active.current.hovered.url).scheme
+				and Url(cx.active.current.hovered.url).scheme.is_virtual
+			local hovered_url = (is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
+				or cx.active.current.hovered.url
+			add_hover_histories(STATE_KEY.hoverved_histories, tostring(hovered_url.parent), tostring(hovered_url), 10)
 		end
 	end)
 
