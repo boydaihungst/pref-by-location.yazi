@@ -411,8 +411,15 @@ local change_pref = ya.sync(function(_)
 				)
 
 				if last_hovered_folder then
-					local hover_histories =
-						get_hover_histories(STATE_KEY.hoverved_histories, tostring(last_hovered_folder.last_parent))
+					local tab_id = tostring(
+						(type(cx.active.id) == "number" or type(cx.active.id) == "string") and cx.active.id
+							or cx.active.id.value
+					)
+
+					local hover_histories = get_hover_histories(
+						STATE_KEY.hoverved_histories .. tab_id,
+						tostring(last_hovered_folder.last_parent)
+					)
 					local current_hovered = cx.active.preview.folder
 						and cx.active.preview.folder.hovered
 						and tostring(
@@ -451,6 +458,10 @@ local change_pref = ya.sync(function(_)
 				end
 				-- Save parent cwd + parent hovered folder + preview hovered folder
 
+				local tab_id = tostring(
+					(type(cx.active.id) == "number" or type(cx.active.id) == "string") and cx.active.id
+						or cx.active.id.value
+				)
 				local parent_folder = cx.active.parent
 					and tostring(
 						(is_virtual and cx.active.parent.cwd or cx.active.parent.cwd.path) or cx.active.parent.cwd
@@ -468,7 +479,7 @@ local change_pref = ya.sync(function(_)
 								or cx.active.preview.folder.cwd
 						),
 						left_to_right_hover = get_hover_histories(
-							STATE_KEY.hoverved_histories,
+							STATE_KEY.hoverved_histories .. tab_id,
 							cx.active.preview.folder
 								and tostring(
 									(is_virtual and cx.active.preview.folder.cwd or cx.active.preview.folder.cwd.path)
@@ -649,7 +660,16 @@ function M:setup(opts)
 				and Url(cx.active.current.hovered.url).scheme.is_virtual
 			local hovered_url = (is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
 				or cx.active.current.hovered.url
-			add_hover_histories(STATE_KEY.hoverved_histories, tostring(hovered_url.parent), tostring(hovered_url), 10)
+			local tab_id = tostring(
+				(type(cx.active.id) == "number" or type(cx.active.id) == "string") and cx.active.id
+					or cx.active.id.value
+			)
+			add_hover_histories(
+				STATE_KEY.hoverved_histories .. tab_id,
+				tostring(hovered_url.parent),
+				tostring(hovered_url),
+				10
+			)
 		end
 	end)
 
