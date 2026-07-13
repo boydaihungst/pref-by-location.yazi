@@ -204,7 +204,8 @@ local read_prefs_from_saved_file = function(pref_path)
 end
 
 local current_dir = ya.sync(function()
-	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
+	local is_virtual = (Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).spec.is_virtual)
+		or (not Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).scheme.is_virtual)
 
 	return tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
 end)
@@ -367,7 +368,8 @@ end)
 
 local get_ind_sort_pref = ya.sync(function()
 	local prefs = get_state(STATE_KEY.prefs)
-	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
+	local is_virtual = (Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).spec.is_virtual)
+		or (not Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).scheme.is_virtual)
 	local cwd = tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
 	-- return sort pref based on location
 	for _, pref in ipairs(prefs) do
@@ -379,7 +381,8 @@ end)
 
 local get_ind_hidden_pref = ya.sync(function()
 	local prefs = get_state(STATE_KEY.prefs)
-	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
+	local is_virtual = (Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).spec.is_virtual)
+		or (not Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).scheme.is_virtual)
 	local cwd = tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
 	-- return hidden pref based on location
 	for _, pref in ipairs(prefs) do
@@ -392,7 +395,8 @@ end)
 -- This function trigger everytime user change cwd
 local change_pref = ya.sync(function(_)
 	local prefs = get_state(STATE_KEY.prefs)
-	local is_virtual = Url(cx.active.current.cwd).scheme and Url(cx.active.current.cwd).scheme.is_virtual
+	local is_virtual = (Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).spec.is_virtual)
+		or (not Url(cx.active.current.cwd).spec and Url(cx.active.current.cwd).scheme.is_virtual)
 	local cwd = tostring((is_virtual and cx.active.current.cwd or cx.active.current.cwd.path) or cx.active.current.cwd)
 	-- change pref based on location
 	for _, pref in ipairs(prefs) do
@@ -656,8 +660,12 @@ function M:setup(opts)
 
 	ps.sub("hover", function(_)
 		if cx.active.current.hovered then
-			local is_virtual = Url(cx.active.current.hovered.url).scheme
-				and Url(cx.active.current.hovered.url).scheme.is_virtual
+			local is_virtual = (
+				Url(cx.active.current.hovered.url).spec and Url(cx.active.current.hovered.url).spec.is_virtual
+			)
+				or (
+					not Url(cx.active.current.hovered.url).spec and Url(cx.active.current.hovered.url).scheme.is_virtual
+				)
 			local hovered_url = (is_virtual and cx.active.current.hovered.url or cx.active.current.hovered.url.path)
 				or cx.active.current.hovered.url
 			local tab_id = tostring(
